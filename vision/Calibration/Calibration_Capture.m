@@ -1,3 +1,7 @@
+%% Calibration capture
+% A script to be used to capture image data for use with the camera
+% calibration toolbox provided in Sensors and Control 2023S
+
 cam_rgb = webcam("Intel(R) RealSense(TM) Depth Camera 435i RGB");
 
 % cam_depth = webcam("Intel(R) RealSense(TM) Depth Camera 435i Depth");
