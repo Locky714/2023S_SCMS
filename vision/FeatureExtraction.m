@@ -1,4 +1,7 @@
 function [tform,scale,rot] = FeatureExtraction(image, reference,output)
+if nargin==2
+    output= 0;
+end
 reference = rgb2gray(reference);
 image = rgb2gray(image);
 
