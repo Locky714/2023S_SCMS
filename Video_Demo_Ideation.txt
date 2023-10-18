@@ -1,0 +1,16 @@
+Video:
+
+3 minutes?
+
+Introduce the concept (Visual servoing with RGBD camera),
+
+Examples of Hand eye calibration
+
+Our project and equipment used (Hand eye calibration of RGBD camera)
+with discussion about our proposal
+
+limitations
+
+Live demo: UR3? Live/simulated
+
+Conclusions/ future development that would be done

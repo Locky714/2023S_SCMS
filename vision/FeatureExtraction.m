@@ -1,13 +1,13 @@
-function [T, scale] = FeatureExtraction(image, reference,output,type)
+function [T, rot,scale,tform] = FeatureExtraction(image, reference,output,type)
 if nargin ==0
 image = imread("tag_rot_60.jpg");
 reference = imread("tag.jpg");
 end
 if nargin<3
-    output= 1; 
+    output= 0; 
 end
 if nargin < 4
-    type = "BRISK";
+    type = "SIFT";
 end
 % 
 % image_harris_corners = detectHarrisFeatures(image,"MinQuality",0.3);
@@ -66,8 +66,7 @@ scale = sqrt(ss*ss+sc*sc);
 % Accessing for output from function.
 T = tform.T;
 
-
-% rot = atan2(ss,sc)*180/pi;
+rot = atan2(ss,sc)*180/pi;
 % 
 % disp("Rot = "+rot)
 % disp("Scale = " + scale)
