@@ -49,7 +49,7 @@ while(loop)
     nexttile(1)
     extract_image = receive(sub_image,3);
     I  = readImage(extract_image);
-    I = im2bw(I);
+%     I = im2bw(I);
     imshow(I);
 
 %     pause(0.5);

@@ -1,7 +1,7 @@
 function [T, rot,scale,tform] = FeatureExtraction(image, reference,output,type)
 if nargin ==0
-image = imread("tag_rot_60.jpg");
-reference = imread("tag.jpg");
+image = im2gray(imread("0.jpg"));
+reference = im2gray(imread("0.jpg"));
 end
 if nargin<3
     output= 0; 
@@ -49,24 +49,24 @@ switch type
         disp("NO TYPE SET");
 end
 
-[reference_features, reference_validPoints] = extractFeatures(reference,reference_points,"Upright",false);
-[image_features, image_validPoints] = extractFeatures(image,image_points,"Upright",false); 
-
-indexPairs = matchFeatures(reference_features,image_features);
-reference_matchedPoints = reference_validPoints(indexPairs(:,1));
-image_matchedPoints = image_validPoints(indexPairs(:,2));
-[tform, inlierDistorted, inlierOriginal] = estimateGeometricTransform(image_matchedPoints,reference_matchedPoints,'similarity');
+% [reference_features, reference_validPoints] = extractFeatures(reference,reference_points,"Upright",false);
+% [image_features, image_validPoints] = extractFeatures(image,image_points,"Upright",false); 
+% 
+% indexPairs = matchFeatures(reference_features,image_features);
+% reference_matchedPoints = reference_validPoints(indexPairs(:,1));
+% image_matchedPoints = image_validPoints(indexPairs(:,2));
+% [tform, inlierDistorted, inlierOriginal] = estimateGeometricTransform(image_matchedPoints,reference_matchedPoints,'similarity');
 
 % Displaying scale and rotation of transform.
-Tinv = tform.invert.T;
-ss = Tinv(2,1);
-sc = Tinv(1,1);
-scale = sqrt(ss*ss+sc*sc);
-
-% Accessing for output from function.
-T = tform.T;
-
-rot = atan2(ss,sc)*180/pi;
+% Tinv = tform.invert.T;
+% ss = Tinv(2,1);
+% sc = Tinv(1,1);
+% scale = sqrt(ss*ss+sc*sc);
+% 
+% % Accessing for output from function.
+% T = tform.T;
+% 
+% rot = atan2(ss,sc)*180/pi;
 % 
 % disp("Rot = "+rot)
 % disp("Scale = " + scale)
@@ -89,4 +89,44 @@ if output
     imshowpair(reference,recovered,'montage');
     title('kfc1 and 2 - 2nd rotated to match 1st perspective');
 end
+
+%%%%%%%%%%%%%%%% APRIL TAG DETECTION
+tagFamily = ["tag36h11","tagCircle21h7","tagCircle49h12","tagCustom48h12","tagStandard41h12"];
+data = load("Calibration\Calib_images\Calib_Results.mat");
+
+% fx = data.fc(1);
+% fy = data.fc(2);
+% s = 0;
+% cx = data.cc(1);
+% cy = data.cc(2);
+
+% K = [fx,s,cx;0,fy,cy;0,0,1];
+
+intrinsics = cameraIntrinsics(data.fc,data.cc,[1080,1920]);
+
+tagSize = 0.04;
+
+image = undistortImage(image,intrinsics,OutputView="same");
+
+
+[id,loc,pose] = readAprilTag(image,"tag36h11",intrinsics,tagSize);
+
+worldPoints = [0 0 0; tagSize/2 0 0; 0 tagSize/2 0; 0 0 tagSize/2];
+
+for i = 1:length(pose)
+    % Get image coordinates for axes.
+    imagePoints = world2img(worldPoints,pose(i),intrinsics);
+
+    % Draw colored axes.
+    image = insertShape(image,Line=[imagePoints(1,:) imagePoints(2,:); ...
+        imagePoints(1,:) imagePoints(3,:); imagePoints(1,:) imagePoints(4,:)], ...
+        ShapeColor=["red","green","blue"],LineWidth=7);
+    
+    image = insertText(image,loc(1,:,i),id(i),BoxOpacity=1,FontSize=25);
 end
+imshow(image)
+end
+
+
+
+
