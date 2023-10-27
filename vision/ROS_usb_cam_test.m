@@ -32,8 +32,14 @@ clc;
 close all;
 loop = true;
 vid =1;
+frame_ID = 0;
 figure("Name","Stream: RGBD");
 tiledlayout(1,2);
+
+% min_depth = 25; %Min depth in 0-1
+max_depth = 4000; %Max depth in 0-65535
+
+depth_scale = 0.1015; %conversion to cm, =0.001015 for meters.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -43,14 +49,35 @@ tiledlayout(1,2);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    tag = imread("tag.jpg");
+tag = imread("tag.jpg");
 
 while(loop)
-    nexttile(1)
+    frame_ID = frame_ID+1;
+
+
     extract_image = receive(sub_image,3);
+    extract_depth = receive(sub_depth,3);
+
+
     I  = readImage(extract_image);
-%     I = im2bw(I);
+    I_depth  = readImage(extract_depth);
+    scaled_depth_matrix_image = depth_scale.*I_depth;
+
+
+    nexttile(1)
     imshow(I);
+%     title("RGB: Frame = "+frame_ID)
+
+
+    nexttile(2)
+    imshow(I_depth,"Colormap",jet,"DisplayRange",[0 max_depth]); % colormaps: hsv,colorcube,prism,spring,winter,jet,lines
+%     title("Depth Frame = "+frame_ID)
+    %     colorbar
+
+    if vid ==0
+        loop = false;
+    end
+end
 
 %     pause(0.5);
 
@@ -68,34 +95,17 @@ while(loop)
 %     catch
 %         disp("UNABLE TO GET ANGLES");
 %     end
-% 
+%
 %     translation_msg = rosmessage("geometry_msgs/Vector3");
 %     translation_msg.X = T(3,1);
 %     translation_msg.Y = T(3,2);
 %     translation_msg.Z = 0;
-% 
+%
 %     rotation_msg = rosmessage("geometry_msgs/Quaternion");
 % %     rotation_msg = rotm2quat(T);
-% 
-% 
+%
+%
 %     msg = rosmessage("geometry_msgs/Transform");
 %     msg.Translation = translation_msg;
 % %     msg.Rotation = rotation_msg;
 %     pub1.send(msg);
-
-
-
-
-
-        nexttile(2)
-        extract_depth = receive(sub_depth,3);
-        I_depth  = readImage(extract_depth);
-        imshow(I_depth,colorcube,DisplayRange=[]);
-        colorbar;
-
-    if vid ==0
-        loop = false;
-    end
-end
-
-

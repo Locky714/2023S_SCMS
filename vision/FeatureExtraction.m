@@ -1,7 +1,7 @@
 function [T, rot,scale,tform] = FeatureExtraction(image, reference,output,type)
 if nargin ==0
-image = im2gray(imread("0.jpg"));
-reference = im2gray(imread("0.jpg"));
+image = im2gray(imread("vision\demo_tag_paint.jpg"));
+reference = im2gray(imread("vision\demo_tag_paint.jpg"));
 end
 if nargin<3
     output= 0; 
@@ -9,25 +9,7 @@ end
 if nargin < 4
     type = "SIFT";
 end
-% 
-% image_harris_corners = detectHarrisFeatures(image,"MinQuality",0.3);
-% reference_harris_corners = detectHarrisFeatures(reference,"MinQuality",0.3);
-% 
-% figure("Name","Harris")
-% tiledlayout( "flow")
-% nexttile;
-% imshow(image);
-% hold on;
-% plot(image_harris_corners);
-% hold off
-% title("Image")
-% 
-% nexttile
-% imshow(reference);
-% hold on
-% plot(reference_harris_corners);
-% hold off
-% title("harris")
+
 
 switch type
     case "SIFT"
@@ -92,41 +74,50 @@ end
 
 %%%%%%%%%%%%%%%% APRIL TAG DETECTION
 tagFamily = ["tag36h11","tagCircle21h7","tagCircle49h12","tagCustom48h12","tagStandard41h12"];
-data = load("Calibration\Calib_images\Calib_Results.mat");
+load("vision\D435i_intrinsics.mat");
 
-% fx = data.fc(1);
-% fy = data.fc(2);
-% s = 0;
-% cx = data.cc(1);
-% cy = data.cc(2);
+tagSize = 140;
 
-% K = [fx,s,cx;0,fy,cy;0,0,1];
+image = undistortImage(image,cameraParams.Intrinsics,OutputView="same");
 
-intrinsics = cameraIntrinsics(data.fc,data.cc,[1080,1920]);
+% [id,loc,pose] = readAprilTag(image,"tag36h11",cameraParams.Intrinsics,tagSize);
+% 
+% worldPoints = [0 0 0; tagSize/2 0 0; 0 tagSize/2 0; 0 0 tagSize/2];
+% 
+% for i = 1:length(pose)
+% 
+%     % Get image coordinates for axes.
+%     imagePoints = worldToImage(cameraParams.Intrinsics,pose(i),worldPoints);
+% 
+%     % Draw colored axes.
+%     image = insertShape(image,Line=[imagePoints(1,:) imagePoints(2,:); ...
+%         imagePoints(1,:) imagePoints(3,:); imagePoints(1,:) imagePoints(4,:)], ...
+%         Color=["red","green","blue"],LineWidth=7);
+%     
+%     image = insertText(image,loc(1,:,i),id(i),BoxOpacity=1,FontSize=25);
+% end
 
-tagSize = 0.04;
+[~, ~, tagPose] = readAprilTag(image, tagFamily(1), cameraParams.Intrinsics, tagSize);
 
-image = undistortImage(image,intrinsics,OutputView="same");
+[cubeWidth, cubeHeight, cubeDepth] = deal(tagSize);
+
+vertices = [ cubeWidth/2 -cubeHeight/2; 
+             cubeWidth/2  cubeHeight/2;
+            -cubeWidth/2  cubeHeight/2;
+            -cubeWidth/2 -cubeHeight/2 ];
+
+cuboidVertices = [vertices zeros(4,1);
+                  vertices (cubeDepth)*ones(4,1)];
+
+projectedVertices = worldToImage(cameraParams.Intrinsics, tagPose(1), cuboidVertices);
+figure
+augmentedImage = insertShape(image, "projected-cuboid", projectedVertices, ...
+    ShapeColor="green", LineWidth=6);
+imshow(augmentedImage)
 
 
-[id,loc,pose] = readAprilTag(image,"tag36h11",intrinsics,tagSize);
-
-worldPoints = [0 0 0; tagSize/2 0 0; 0 tagSize/2 0; 0 0 tagSize/2];
-
-for i = 1:length(pose)
-    % Get image coordinates for axes.
-    imagePoints = world2img(worldPoints,pose(i),intrinsics);
-
-    % Draw colored axes.
-    image = insertShape(image,Line=[imagePoints(1,:) imagePoints(2,:); ...
-        imagePoints(1,:) imagePoints(3,:); imagePoints(1,:) imagePoints(4,:)], ...
-        ShapeColor=["red","green","blue"],LineWidth=7);
-    
-    image = insertText(image,loc(1,:,i),id(i),BoxOpacity=1,FontSize=25);
+% imshow(image)
 end
-imshow(image)
-end
-
 
 
 
