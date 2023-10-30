@@ -3,7 +3,7 @@ classdef ArmController
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties (Constant)
         DEFAULT_STEPS_PER_METRE = 50;
-        DEFAULT_IK_ERROR_MAX = 0.001;
+        DEFAULT_IK_ERROR_MAX = 0.05;
         DEFAULT_VELOCITY_MAX = 0.1; % m/s
         DEFAULT_MEASURE_OF_MANIPULABILITY_MIN = 0.1;
     end
@@ -164,9 +164,12 @@ classdef ArmController
         end
 %-------------------------------------------------------------------------%
         function self = set.nextState(self,state)
-            if ~(isequal(self.currentState,state)) % ensuring state has changed
+            if ~(isequal(self.currentState,state))
+                % ensuring state has changed
                 self.previousState = self.currentState;
                 self.currentState = state;
+            else
+                error('nextState must not be same as currentState');
             end
         end
 %-------------------------------------------------------------------------%
@@ -320,20 +323,21 @@ classdef ArmController
             delay = GetClockSpeed() / length(qPath);
             goalReached = false;
             err = 0;
-                    disp('moveToNextPoint - SetGrabTarget:')
-                    disp('Transform:')
-                    disp(self.gripTargetTr)
-                    disp('handle:')
-                    disp(self.gripTarget_h)
-                    disp('vertices:')
-                    disp(self.gripTargetVerts)
-            
-            if isequal(self.currentState,armState.EStop)
-                disp('OPERATIONS CANNOT CONTINUE UNTIL ESTOP RELEASED')
-            else
-                for stepCurrent = 1:length(qPath(:,1))
-                    self.robot.model.animate(qPath(stepCurrent,:));
+            disp('moveToNextPoint - SetGrabTarget:')
+            disp('Transform:')
+            disp(self.gripTargetTr)
+            disp('handle:')
+            disp(self.gripTarget_h)
+            disp('vertices:')
+            disp(self.gripTargetVerts)
 
+            for stepCurrent = 1:length(qPath(:,1))
+                if isequal(self.currentState,armState.EStop)
+                    disp('OPERATIONS CANNOT CONTINUE UNTIL ESTOP RELEASED')
+                    stepCurrent = stepCurrent - 1;
+                else
+                    self.robot.model.animate(qPath(stepCurrent,:));
+    
                     if self.gripperCloseFlag
                         gripObjTr = self.currentTr * inv(self.gripTargetTr);
                         
@@ -344,7 +348,7 @@ classdef ArmController
                         drawnow();
                     else
                     end
-
+    
                     % if ~isempty(self.gripper)
                     %     self.gripper.model.base = self.currentTr * inv(self.gripper.model.base);
                     %     nextVertices = (brickVerts(:,1:3) * brickTf(1:3,1:3)') + brickTf(1:3,4)';
@@ -369,18 +373,27 @@ classdef ArmController
                           self.currentTr(3,4),'.-b');
                     pause(delay);
                 end
-
+            end
+            
+            errTransl = norm(transl(desiredTr) - transl(self.currentTr));
+            % errRot(1) = norm(trotx(desiredTr) - trotx(self.currentTr));
+            % errRot(2) = norm(troty(desiredTr) - troty(self.currentTr));
+            % errRot(3) = norm(trotz(desiredTr) - trotz(self.currentTr));
+            err(1) = errTransl;
+            % err{2} = errRot;
+            if self.ikErrorMax > errTransl
+                % Goal flag, final pose has been reached within tolerance
+                % Plot final End-Effector position (compare to desiredTr)
+                disp('Result within IKine maximum error')
+                goalReached = true;
+                plot3(self.currentTr(1,4), ...
+                  self.currentTr(2,4), ...
+                  self.currentTr(3,4),'o:g');
+            else
                 % Plot final End-Effector position (compare to desiredTr)
                 plot3(self.currentTr(1,4), ...
-                      self.currentTr(2,4), ...
-                      self.currentTr(3,4),'o:r');
-                
-                err = norm(transl(desiredTr) - transl(self.currentTr));
-                if self.ikErrorMax > err
-                    % Goal flag, final pose has been reached within tolerance
-                    disp('Result within IKine maximum error')
-                    goalReached = true;
-                end
+                  self.currentTr(2,4), ...
+                  self.currentTr(3,4),'x:r');
             end
         end
 %-------------------------------------------------------------------------%
@@ -390,8 +403,6 @@ classdef ArmController
             eeTr = self.robot.model.fkine(self.robot.model.getpos);
             displ = norm(transl(desiredTr) - transl(eeTr));
             steps = round(displ * self.stepsPerMetre);
-
-            M = [1,1,1,1,1,1];
 
             q0 = self.robot.model.getpos;
             q1 = self.robot.model.ikcon(desiredTr,q0);
@@ -413,15 +424,58 @@ classdef ArmController
         
                     manip = zeros(1,steps);
                     err = nan(self.jointCount,steps);
-                    
+
+                    % ASSUMES Tr(1,1) && Tr(3,3) ~= 0
+                    % disp('desTr')
+                    % disp(desiredTr(2,1))
+                    % disp('/')
+                    % disp(desiredTr(1,1))
+                    % disp(desiredTr(3,2))
+                    % disp('/')
+                    % disp(desiredTr(3,3))
+                    % disp('eeTr')
+                    % disp(eeTr(2,1))
+                    % disp('/')
+                    % disp(eeTr(1,1))
+                    % disp(eeTr(3,2))
+                    % disp('/')
+                    % disp(eeTr(3,3))
+
+                    PdesTr = atan(desiredTr(3,2)/desiredTr(3,3));
+                    RdesTr = atan(-desiredTr(3,1)/sqrt(desiredTr(3,2)^2 + desiredTr(3,3)^2));
+                    YdesTr = atan(desiredTr(2,1)/desiredTr(1,1));
+
+                    PeeTr = atan(eeTr(3,2)/eeTr(3,3));
+                    ReeTr = atan(-eeTr(3,1)/sqrt(eeTr(3,2)^2 + eeTr(3,3)^2));
+                    YeeTr = atan(eeTr(2,1)/eeTr(1,1));
+
+                    % if (desiredTr(3,2) == 0) && (desiredTr(3,3) == 0)
+                    %     P = zeros(1,steps);
+                    % end
+                    % if (desiredTr(2,1) == 0) && (desiredTr(1,1) == 0)
+                    %     Y = zeros(1,steps);
+                    % end
+                    % if (eeTr(3,2) == 0) && (eeTr(3,3) == 0)
+                    %     P = zeros(1,steps);
+                    % end
+                    % if (eeTr(2,1) == 0) && (eeTr(1,1) == 0)
+                    %     Y = zeros(1,steps);
+                    % end
+
                     x = linspace(eeTr(1,4),desiredTr(1,4),steps);
                     y = linspace(eeTr(2,4),desiredTr(2,4),steps);
                     z = linspace(eeTr(3,4),desiredTr(3,4),steps);
+                    % P = linspace(PeeTr,PdesTr,steps);
+                    % R = linspace(ReeTr,RdesTr,steps);
+                    % Y = linspace(YeeTr,YdesTr,steps);
                     P = zeros(1,steps);
                     R = zeros(1,steps);
                     Y = zeros(1,steps);
+                    disp(P)
+                    disp(R)
+                    disp(Y)
         
-                    X = [x',y',z',P',R',Y']';%%%%%%%%%%%%%
+                    X = [x',y',z',P',R',Y']';
                     X = X(1:self.jointCount,:);
         
                     for i = 1:steps-1
@@ -434,11 +488,12 @@ classdef ArmController
                         end
                         J = J(1:self.jointCount,:);
                         manip(:,i)= sqrt(det(J*J'));
+                        damping = 0.01*eye(length(J(:,1)));
         
                         % Checking if close to singularity
                         if manip(:,i) < self.manipMin
-                            %qd = inv(J'*J + 0.01*eye(2))*J' * xd;
-                            qd = pinv(J) * xd;
+                            qd = inv(J'*J + damping)*J' * xd;
+                            %qd = pinv(J) * xd;
                         else
                             qd = inv(J) * xd;
                         end
