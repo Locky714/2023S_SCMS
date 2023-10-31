@@ -431,8 +431,8 @@ classdef ArmController < handle
             %Calculating distance and required steps based on current
             %Clock Rate
             eeTr = self.robot.model.fkine(self.robot.model.getpos);
-            % displ = norm(transl(desiredTr) - transl(eeTr));
-            steps = round(% displ * self.stepsPerMetre);
+            displ = norm(transl(desiredTr) - transl(eeTr));
+            steps = round(displ * self.stepsPerMetre);
 
             q0 = self.robot.model.getpos;
             q1 = self.robot.model.ikcon(desiredTr,q0);
@@ -549,7 +549,7 @@ classdef ArmController < handle
             q = zeros(1,self.jointCount);
             
             tic
-
+fprintd
             for q1 = qlim(1,1):stepRads:qlim(1,2)
                 for q2 = qlim(2,1):stepRads:qlim(2,2)
                     for q3 = qlim(3,1):stepRads:qlim(3,2)
