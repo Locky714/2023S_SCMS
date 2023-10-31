@@ -8,8 +8,9 @@ global SHOW_PLOTS;
 SetClockSpeed(0.5);
 
 %% Setting up Workspace
-axis([-2 2 -2 2 0 2]);
+axis([-1 1 -1 1 0 1]);
 hold on
+image_output = 0;
 
 %% Init ArmController for UR3
 baseTr{1} = transl(0, 0, 0) * trotz(0,'deg');
@@ -23,14 +24,19 @@ localRelativeTr = transl([0,0,0.5]); % In VS target coordinates
 [sub1,sub2] = rosSetup;
 
 %% get image
-[rgb,depth] = getImage(sub1,sub2);
+% [rgb,depth] = getImage(sub1,sub2);
 
 %% Camera intrinsics imported
 load("vision\LW_D415.mat");
 % intrinsics = cameraParams.Intrinsics;
 
 %% Feature Extraction
-poseTags = FeatureExtraction(rgb,intrinsics,150);
+% poseTags = FeatureExtraction(rgb,intrinsics,150);
+% 
+% if size(poseTags) == 0
+%     disp("NO TAG DETECTED: PAUSING");
+%     pause;
+% end
 
 %% Simulation Variables for GUI
 simulateTrigger = true;
@@ -40,7 +46,31 @@ repeats = 0;
 
 %% Main Loop
 while  simulateTrigger
+[rgb,depth] = getImage(sub1,sub2);
+disp("NEW IMAGE");
+poseTags = FeatureExtraction(rgb,intrinsics,150);
+ 
+if size(poseTags) == 0
+    disp("NO TAG DETECTED: PAUSING");
+    pause;
+    [rgb,depth] = getImage(sub1,sub2);
+    disp("NEW IMAGE");
+    poseTags = FeatureExtraction(rgb,intrinsics,150);
+    if size(poseTags) == 0
+        disp("No Tag x2");
+        pause;
+    end
+end
+
+
     targetTr = poseTags.A * localRelativeTr;
+    % Converting units to metres
+    targetTr(:,4 ) = [
+        targetTr(1,4)/1000;
+        targetTr(2,4)/1000;
+        targetTr(3,4)/1000;
+1
+        ];
     ctrlUR3.EStop(EStopTrigger);
     if repeats < RMRCMaxRetry
         qPath = ctrlUR3.genPath(targetTr,'RMRC','Global');

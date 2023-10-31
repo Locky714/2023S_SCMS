@@ -2,7 +2,7 @@
 classdef ArmController < handle
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties (Constant)
-        DEFAULT_STEPS_PER_METRE = 50;
+        DEFAULT_STEPS_PER_METRE = 25;
         DEFAULT_IK_ERROR_MAX = 0.05;
         DEFAULT_VELOCITY_MAX = 0.1; % m/s
         DEFAULT_MEASURE_OF_MANIPULABILITY_MIN = 0.1;
