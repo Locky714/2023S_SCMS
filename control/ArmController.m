@@ -167,24 +167,24 @@ classdef ArmController < handle
         end
 %-------------------------------------------------------------------------%
         function self = set.nextState(self,state)
-            if ~(isequal(self.currentState,state))
+            % if ~(isequal(self.currentState,state))
                 % ensuring state has changed
                 self.previousState = self.currentState;
                 self.currentState = state;
-            else
-                error('nextState must not be same as currentState');
-            end
+            % else
+            %     error('nextState must not be same as currentState');
+            % end
         end
 %-------------------------------------------------------------------------%
-        function self = set.EStopFlag(self,stopBool)
-            if stopBool
-                self.nextState = armState.EStop;
-                disp('ESTOP TRIGGERED, OPERATIONS CEASED');
-            else
-                self.nextState = self.previousState;
-                disp('ESTOP RELEASED, OPERATIONS RESUMED');
-            end
-        end
+        % function self = set.EStopFlag(self,stopBool)
+        %     if stopBool
+        %         self.nextState = armState.EStop;
+        %         disp('ESTOP TRIGGERED, OPERATIONS CEASED');
+        %     else
+        %         self.nextState = self.previousState;
+        %         disp('ESTOP RELEASED, OPERATIONS RESUMED');
+        %     end
+        % end
 %-------------------------------------------------------------------------%
         function self = EStop(self,stopBool)
             % self.EStopFlag = stopBool;
@@ -337,6 +337,7 @@ classdef ArmController < handle
             for stepCurrent = 1:length(qPath(:,1))
                 if isequal(self.currentState,armState.EStop)
                     disp('OPERATIONS CANNOT CONTINUE UNTIL ESTOP RELEASED')
+                    % ADD FREELOOK
                     stepCurrent = stepCurrent - 1;
                 else
                     self.robot.model.animate(qPath(stepCurrent,:));
@@ -378,49 +379,51 @@ classdef ArmController < handle
                 end
             end
             
-            PdesTr = atan(desiredTr(3,2)/desiredTr(3,3));
-            RdesTr = atan(-desiredTr(3,1)/sqrt(desiredTr(3,2)^2 + desiredTr(3,3)^2));
-            YdesTr = atan(desiredTr(2,1)/desiredTr(1,1));
-            
-            eeTr = self.currentTr;
-            PeeTr = atan(eeTr(3,2)/eeTr(3,3));
-            ReeTr = atan(-eeTr(3,1)/sqrt(eeTr(3,2)^2 + eeTr(3,3)^2));
-            YeeTr = atan(eeTr(2,1)/eeTr(1,1));
-
-            if (desiredTr(3,2) == 0) && (desiredTr(3,3) == 0)
-                PdesTr = 0;
-            end
-            if (desiredTr(2,1) == 0) && (desiredTr(1,1) == 0)
-                YdesTr = 0;
-            end
-            if (eeTr(3,2) == 0) && (eeTr(3,3) == 0)
-                PeeTr = 0;
-            end
-            if (eeTr(2,1) == 0) && (eeTr(1,1) == 0)
-                YeeTr = 0;
-            end
-
-            err(1) = norm(transl(desiredTr) - transl(self.currentTr));
-            err(2) = norm(PdesTr - PeeTr);
-            err(3) = norm(RdesTr - ReeTr);
-            err(4) = norm(YdesTr - YeeTr);
-            for i = 1:length(err)
-                fprintf('Err :%d is equal to %d', i, err(i));
-                if err(i) > self.ikErrorMax
+            if ~isequal(self.currentState,armState.EStop)
+                PdesTr = atan(desiredTr(3,2)/desiredTr(3,3));
+                RdesTr = atan(-desiredTr(3,1)/sqrt(desiredTr(3,2)^2 + desiredTr(3,3)^2));
+                YdesTr = atan(desiredTr(2,1)/desiredTr(1,1));
+                
+                eeTr = self.currentTr;
+                PeeTr = atan(eeTr(3,2)/eeTr(3,3));
+                ReeTr = atan(-eeTr(3,1)/sqrt(eeTr(3,2)^2 + eeTr(3,3)^2));
+                YeeTr = atan(eeTr(2,1)/eeTr(1,1));
+    
+                if (desiredTr(3,2) == 0) && (desiredTr(3,3) == 0)
+                    PdesTr = 0;
+                end
+                if (desiredTr(2,1) == 0) && (desiredTr(1,1) == 0)
+                    YdesTr = 0;
+                end
+                if (eeTr(3,2) == 0) && (eeTr(3,3) == 0)
+                    PeeTr = 0;
+                end
+                if (eeTr(2,1) == 0) && (eeTr(1,1) == 0)
+                    YeeTr = 0;
+                end
+    
+                err(1) = norm(transl(desiredTr) - transl(self.currentTr));
+                err(2) = norm(PdesTr - PeeTr);
+                err(3) = norm(RdesTr - ReeTr);
+                err(4) = norm(YdesTr - YeeTr);
+                for i = 1:length(err)
+                    fprintf('Err :%d is equal to %d', i, err(i));
+                    if err(i) > self.ikErrorMax
+                        % Plot final End-Effector position (compare to desiredTr)
+                        plot3(self.currentTr(1,4), ...
+                          self.currentTr(2,4), ...
+                          self.currentTr(3,4),'x:r');
+                        goalReached = false;
+                    end
+                end
+                if goalReached
+                    % Goal flag, final pose has been reached within tolerance
                     % Plot final End-Effector position (compare to desiredTr)
+                    disp('Result within IKine maximum error')
                     plot3(self.currentTr(1,4), ...
                       self.currentTr(2,4), ...
-                      self.currentTr(3,4),'x:r');
-                    goalReached = false;
+                      self.currentTr(3,4),'o:g');
                 end
-            end
-            if goalReached
-                % Goal flag, final pose has been reached within tolerance
-                % Plot final End-Effector position (compare to desiredTr)
-                disp('Result within IKine maximum error')
-                plot3(self.currentTr(1,4), ...
-                  self.currentTr(2,4), ...
-                  self.currentTr(3,4),'o:g');
             end
         end
 %-------------------------------------------------------------------------%
