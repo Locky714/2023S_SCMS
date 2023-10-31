@@ -192,7 +192,7 @@ classdef ArmController < handle
                 self.nextState = armState.EStop;
                 disp('ESTOP TRIGGERED, OPERATIONS CEASED');
             else
-                self.nextState = self.previousState;
+                self.currentState = armState.Init;
                 disp('ESTOP RELEASED, OPERATIONS RESUMED');
             end
         end
