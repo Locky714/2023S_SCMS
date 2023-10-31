@@ -6,7 +6,6 @@ clc
 global CLOCK_SPEED;
 global SHOW_PLOTS;
 SetClockSpeed(0.5);
-SetShowPlots(true);
 
 %% Setting up Workspace
 axis([-2 2 -2 2 0 2]);
@@ -27,14 +26,15 @@ localRelativeTr = transl([0,0,0.5]); % In VS target coordinates
 [rgb,depth] = getImage(sub1,sub2);
 
 %% Camera intrinsics imported
-load("imageData.mat");
+load("vision\LW_D415.mat");
+% intrinsics = cameraParams.Intrinsics;
 
 %% Feature Extraction
 poseTags = FeatureExtraction(rgb,intrinsics,150);
 
 %% Simulation Variables for GUI
 simulateTrigger = true;
-EStopTrigger = true;
+EStopTrigger = false;
 RMRCMaxRetry = 5;
 repeats = 0;
 
@@ -50,12 +50,12 @@ while  simulateTrigger
     [goalReached,error] = ctrlUR3.moveToNextPoint(targetTr,qPath);
     if ~goalReached
         disp('goal not reached')
-        disp(error)
+        disp(error);
         repeats = repeats + 1;
         SetClockSpeed(0.5);
     else
         disp('goal reached')
-        disp(error)
+        disp(error);
         repeats = 0;
         SetClockSpeed(0.1);
         i = i+1;
