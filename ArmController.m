@@ -167,24 +167,9 @@ classdef ArmController < handle
         end
 %-------------------------------------------------------------------------%
         function self = set.nextState(self,state)
-            % if ~(isequal(self.currentState,state))
-                % ensuring state has changed
                 self.previousState = self.currentState;
                 self.currentState = state;
-            % else
-            %     error('nextState must not be same as currentState');
-            % end
         end
-%-------------------------------------------------------------------------%
-        % function self = set.EStopFlag(self,stopBool)
-        %     if stopBool
-        %         self.nextState = armState.EStop;
-        %         % disp('ESTOP TRIGGERED, OPERATIONS CEASED');
-        %     else
-        %         self.nextState = self.previousState;
-        %         % disp('ESTOP RELEASED, OPERATIONS RESUMED');
-        %     end
-        % end
 %-------------------------------------------------------------------------%
         function self = EStop(self,stopBool)
             % self.EStopFlag = stopBool;
@@ -233,24 +218,11 @@ classdef ArmController < handle
 %//Functions//////////////////////////////////////////////////////////////%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function self = SetGrabTarget(self,gripObjTr,gripObj_h)
-            % disp('SetGrabTarget - Inputs:')
-            % disp('Transform:')
-            % disp(gripObjTr)
-            % disp('handle:')
-            % disp(gripObj_h)
 
             self.gripTarget_h = gripObj_h;
             self.gripTargetVerts = [get(self.gripTarget_h,'Vertices'),...
                 ones(size(get(self.gripTarget_h,'Vertices'),1),1)];
             self.gripTargetTr = gripObjTr;
-            
-            % disp('SetGrabTarget - Outputs:')
-            % disp('Transform:')
-            % disp(self.gripTargetTr)
-            % disp('handle:')
-            % disp(self.gripTarget_h)
-            % disp('vertices:')
-            % disp(self.gripTargetVerts)
         end
 %-------------------------------------------------------------------------%
         function self = grabTarget(self,gripperClose)
@@ -326,18 +298,10 @@ classdef ArmController < handle
             delay = GetClockSpeed() / length(qPath);
             goalReached = true;
             err = 0;
-            % % disp('moveToNextPoint - SetGrabTarget:')
-            % % disp('Transform:')
-            % % disp(self.gripTargetTr)
-            % % disp('handle:')
-            % % disp(self.gripTarget_h)
-            % % disp('vertices:')
-            % % disp(self.gripTargetVerts)
 
             for stepCurrent = 1:length(qPath(:,1))
                 if isequal(self.currentState,armState.EStop)
-                    % disp('OPERATIONS CANNOT CONTINUE UNTIL ESTOP RELEASED')
-                    % ADD FREELOOK
+                    disp('OPERATIONS CANNOT CONTINUE UNTIL ESTOP RELEASED')
                     stepCurrent = stepCurrent - 1;
                 else
                     self.robot.model.animate(qPath(stepCurrent,:));
@@ -353,19 +317,6 @@ classdef ArmController < handle
                     else
                     end
     
-                    % if ~isempty(self.gripper)
-                    %     self.gripper.model.base = self.currentTr * inv(self.gripper.model.base);
-                    %     nextVertices = (brickVerts(:,1:3) * brickTf(1:3,1:3)') + brickTf(1:3,4)';
-                    % 
-                    %     set(brickCurrent_h,'Vertices',nextVertices)
-                    % end
-                    % 
-                    % if ~isempty(self.gripTarget)
-                    %     gripTarget = robotEE * inv(brickCurrentPose);
-                    %     nextVertices = (brickVerts(:,1:3) * brickTf(1:3,1:3)') + brickTf(1:3,4)';
-                    % 
-                    %     set(brickCurrent_h,'Vertices',nextVertices)
-                    % end
                     drawnow();
                 
                     robotPos = self.robot.model.getpos;
@@ -455,22 +406,6 @@ classdef ArmController < handle
                     manip = zeros(1,steps);
                     err = nan(self.jointCount,steps);
 
-                    % ASSUMES Tr(1,1) && Tr(3,3) ~= 0
-                    % % disp('desTr')
-                    % % disp(desiredTr(2,1))
-                    % % disp('/')
-                    % % disp(desiredTr(1,1))
-                    % % disp(desiredTr(3,2))
-                    % % disp('/')
-                    % % disp(desiredTr(3,3))
-                    % % disp('eeTr')
-                    % % disp(eeTr(2,1))
-                    % % disp('/')
-                    % % disp(eeTr(1,1))
-                    % % disp(eeTr(3,2))
-                    % % disp('/')
-                    % % disp(eeTr(3,3))
-
                     PdesTr = atan(desiredTr(3,2)/desiredTr(3,3));
                     RdesTr = atan(-desiredTr(3,1)/sqrt(desiredTr(3,2)^2 + desiredTr(3,3)^2));
                     YdesTr = atan(desiredTr(2,1)/desiredTr(1,1));
@@ -498,12 +433,6 @@ classdef ArmController < handle
                     P = linspace(PeeTr,PdesTr,steps);
                     R = linspace(ReeTr,RdesTr,steps);
                     Y = linspace(YeeTr,YdesTr,steps);
-                    % P = zeros(1,steps);
-                    % R = zeros(1,steps);
-                    % Y = zeros(1,steps);
-                    % disp(P)
-                    % disp(R)
-                    % disp(Y)
         
                     X = [x',y',z',P',R',Y']';
                     X = X(1:self.jointCount,:);
@@ -540,16 +469,14 @@ classdef ArmController < handle
 %-------------------------------------------------------------------------%
         function calcWorkEnvelope(self)
             qlim = self.robot.model.qlim;
-
             stepRads = deg2rad(20);
-
             pointCloudeSize = prod(floor((qlim(1:6,2)-qlim(1:6,1))/stepRads + 1));
             pointCloud = zeros(pointCloudeSize,3);
             counter = 1;
             q = zeros(1,self.jointCount);
             
             tic
-fprintd
+
             for q1 = qlim(1,1):stepRads:qlim(1,2)
                 for q2 = qlim(2,1):stepRads:qlim(2,2)
                     for q3 = qlim(3,1):stepRads:qlim(3,2)
@@ -559,35 +486,18 @@ fprintd
                         tr = self.robot.model.fkine(q).T;
                         pointCloud(counter,:) = tr(1:3,4)';
                         counter = counter + 1;
-                        if mod(counter/pointCloudeSize * 100,1) == 0
-                            % fprintff(['After ',num2str(toc),' seconds, completed ',num2str(counter/pointCloudeSize * 100),'% of poses']);
-                        end
                     end
                 end
             end
-
-            % Calculate the center of the point cloud (centroid)
             centre = mean(pointCloud);
-
-            % Calculate the maximum distance from the center to any point in the point cloud
             distances = sqrt(sum((pointCloud - centre).^2, 2));
+
             distx = max(sqrt(sum((pointCloud(:,1) - centre(:,1)).^2, 2)));
             disty = max(sqrt(sum((pointCloud(:,2) - centre(:,2)).^2, 2)));
             distz = max(sqrt(sum((pointCloud(:,3) - centre(:,3)).^2, 2)));
-
-            % Calculate the plot radius and plot volume (assuming a spherical shape)
+            
             plotRadius = max(distances);
             plotVolume = (4/3) * pi * plotRadius^3;
-
-            % plot3(pointCloud(:,1),pointCloud(:,2),pointCloud(:,3),'r');
-            % [X,Y,Z] = sphere();
-            % surf(X * distx + centre(1), ...
-            %      Y * disty + centre(2), ...
-            %      Z * distz + centre(3));
-            % disp('plotRadius: ');
-            % disp(plotRadius);
-            % disp('plotVolume: ');
-            % disp(plotVolume);
         end
 %-------------------------------------------------------------------------%
     end
