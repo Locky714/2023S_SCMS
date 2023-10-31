@@ -1,11 +1,12 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-classdef ArmController
+classdef ArmController < handle
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties (Constant)
         DEFAULT_STEPS_PER_METRE = 50;
         DEFAULT_IK_ERROR_MAX = 0.05;
         DEFAULT_VELOCITY_MAX = 0.1; % m/s
         DEFAULT_MEASURE_OF_MANIPULABILITY_MIN = 0.1;
+        DEFAULT_DAMPED_LEAST_SQUARES = 0.01;
     end
 
     properties(Access = private)
@@ -17,6 +18,7 @@ classdef ArmController
         stepsPerMetre
         ikErrorMax
         velocityMax
+        dampedLS
         manipMin
         previousState
         previousTr
@@ -51,6 +53,7 @@ classdef ArmController
             self.stepsPerMetre = self.DEFAULT_STEPS_PER_METRE;
             self.ikErrorMax = self.DEFAULT_IK_ERROR_MAX;
             self.velocityMax = self.DEFAULT_VELOCITY_MAX;
+            self.dampedLS = self.DEFAULT_DAMPED_LEAST_SQUARES;
             self.manipMin = self.DEFAULT_MEASURE_OF_MANIPULABILITY_MIN;
             self.gripperCloseFlag = false;
             % ArmState is initialised until constructor is complete
@@ -321,15 +324,15 @@ classdef ArmController
 %-------------------------------------------------------------------------%
         function [goalReached,err] = moveToNextPoint(self,desiredTr,qPath)
             delay = GetClockSpeed() / length(qPath);
-            goalReached = false;
+            goalReached = true;
             err = 0;
-            disp('moveToNextPoint - SetGrabTarget:')
-            disp('Transform:')
-            disp(self.gripTargetTr)
-            disp('handle:')
-            disp(self.gripTarget_h)
-            disp('vertices:')
-            disp(self.gripTargetVerts)
+            % disp('moveToNextPoint - SetGrabTarget:')
+            % disp('Transform:')
+            % disp(self.gripTargetTr)
+            % disp('handle:')
+            % disp(self.gripTarget_h)
+            % disp('vertices:')
+            % disp(self.gripTargetVerts)
 
             for stepCurrent = 1:length(qPath(:,1))
                 if isequal(self.currentState,armState.EStop)
@@ -375,25 +378,49 @@ classdef ArmController
                 end
             end
             
-            errTransl = norm(transl(desiredTr) - transl(self.currentTr));
-            % errRot(1) = norm(trotx(desiredTr) - trotx(self.currentTr));
-            % errRot(2) = norm(troty(desiredTr) - troty(self.currentTr));
-            % errRot(3) = norm(trotz(desiredTr) - trotz(self.currentTr));
-            err(1) = errTransl;
-            % err{2} = errRot;
-            if self.ikErrorMax > errTransl
+            PdesTr = atan(desiredTr(3,2)/desiredTr(3,3));
+            RdesTr = atan(-desiredTr(3,1)/sqrt(desiredTr(3,2)^2 + desiredTr(3,3)^2));
+            YdesTr = atan(desiredTr(2,1)/desiredTr(1,1));
+            
+            eeTr = self.currentTr;
+            PeeTr = atan(eeTr(3,2)/eeTr(3,3));
+            ReeTr = atan(-eeTr(3,1)/sqrt(eeTr(3,2)^2 + eeTr(3,3)^2));
+            YeeTr = atan(eeTr(2,1)/eeTr(1,1));
+
+            if (desiredTr(3,2) == 0) && (desiredTr(3,3) == 0)
+                PdesTr = 0;
+            end
+            if (desiredTr(2,1) == 0) && (desiredTr(1,1) == 0)
+                YdesTr = 0;
+            end
+            if (eeTr(3,2) == 0) && (eeTr(3,3) == 0)
+                PeeTr = 0;
+            end
+            if (eeTr(2,1) == 0) && (eeTr(1,1) == 0)
+                YeeTr = 0;
+            end
+
+            err(1) = norm(transl(desiredTr) - transl(self.currentTr));
+            err(2) = norm(PdesTr - PeeTr);
+            err(3) = norm(RdesTr - ReeTr);
+            err(4) = norm(YdesTr - YeeTr);
+            for i = 1:length(err)
+                fprintf('Err :%d is equal to %d', i, err(i));
+                if err(i) > self.ikErrorMax
+                    % Plot final End-Effector position (compare to desiredTr)
+                    plot3(self.currentTr(1,4), ...
+                      self.currentTr(2,4), ...
+                      self.currentTr(3,4),'x:r');
+                    goalReached = false;
+                end
+            end
+            if goalReached
                 % Goal flag, final pose has been reached within tolerance
                 % Plot final End-Effector position (compare to desiredTr)
                 disp('Result within IKine maximum error')
-                goalReached = true;
                 plot3(self.currentTr(1,4), ...
                   self.currentTr(2,4), ...
                   self.currentTr(3,4),'o:g');
-            else
-                % Plot final End-Effector position (compare to desiredTr)
-                plot3(self.currentTr(1,4), ...
-                  self.currentTr(2,4), ...
-                  self.currentTr(3,4),'x:r');
             end
         end
 %-------------------------------------------------------------------------%
@@ -449,28 +476,28 @@ classdef ArmController
                     ReeTr = atan(-eeTr(3,1)/sqrt(eeTr(3,2)^2 + eeTr(3,3)^2));
                     YeeTr = atan(eeTr(2,1)/eeTr(1,1));
 
-                    % if (desiredTr(3,2) == 0) && (desiredTr(3,3) == 0)
-                    %     P = zeros(1,steps);
-                    % end
-                    % if (desiredTr(2,1) == 0) && (desiredTr(1,1) == 0)
-                    %     Y = zeros(1,steps);
-                    % end
-                    % if (eeTr(3,2) == 0) && (eeTr(3,3) == 0)
-                    %     P = zeros(1,steps);
-                    % end
-                    % if (eeTr(2,1) == 0) && (eeTr(1,1) == 0)
-                    %     Y = zeros(1,steps);
-                    % end
+                    if (desiredTr(3,2) == 0) && (desiredTr(3,3) == 0)
+                        PdesTr = 0;
+                    end
+                    if (desiredTr(2,1) == 0) && (desiredTr(1,1) == 0)
+                        YdesTr = 0;
+                    end
+                    if (eeTr(3,2) == 0) && (eeTr(3,3) == 0)
+                        PeeTr = 0;
+                    end
+                    if (eeTr(2,1) == 0) && (eeTr(1,1) == 0)
+                        YeeTr = 0;
+                    end
 
                     x = linspace(eeTr(1,4),desiredTr(1,4),steps);
                     y = linspace(eeTr(2,4),desiredTr(2,4),steps);
                     z = linspace(eeTr(3,4),desiredTr(3,4),steps);
-                    % P = linspace(PeeTr,PdesTr,steps);
-                    % R = linspace(ReeTr,RdesTr,steps);
-                    % Y = linspace(YeeTr,YdesTr,steps);
-                    P = zeros(1,steps);
-                    R = zeros(1,steps);
-                    Y = zeros(1,steps);
+                    P = linspace(PeeTr,PdesTr,steps);
+                    R = linspace(ReeTr,RdesTr,steps);
+                    Y = linspace(YeeTr,YdesTr,steps);
+                    % P = zeros(1,steps);
+                    % R = zeros(1,steps);
+                    % Y = zeros(1,steps);
                     disp(P)
                     disp(R)
                     disp(Y)
@@ -488,11 +515,10 @@ classdef ArmController
                         end
                         J = J(1:self.jointCount,:);
                         manip(:,i)= sqrt(det(J*J'));
-                        damping = 0.01*eye(length(J(:,1)));
         
                         % Checking if close to singularity
                         if manip(:,i) < self.manipMin
-                            qd = inv(J'*J + damping)*J' * xd;
+                            qd = inv(J'*J + self.dampedLS*eye(length(J(:,1))))*J' * xd;
                             %qd = pinv(J) * xd;
                         else
                             qd = inv(J) * xd;
