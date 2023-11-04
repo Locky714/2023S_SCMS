@@ -5,7 +5,7 @@ if nargin <=2
 end
 
 % min_depth = 25; %Min depth in 0-1
-max_depth = 4000; %Max depth in 0-65535
+max_depth = 4500; %Max depth in 0-65535
 
 % depth_scale = 0.1015; %conversion to cm, =0.001015 for meters.
 
